@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台語語音轉台羅拼音</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .recording-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .record-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .record-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .record-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .record-btn.recording {
+            background: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+            }
+            50% {
+                box-shadow: 0 4px 25px rgba(231, 76, 60, 0.8);
+            }
+        }
+
+        .status {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        .status.recording {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .status.processing {
+            color: #f39c12;
+            font-weight: bold;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .result-text {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            font-size: 18px;
+            line-height: 1.8;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 100px;
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        .loader.show {
+            display: block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 台語語音轉台羅拼音</h1>
+        <p class="subtitle">Tâi-gí Gí-im Choán Tâi-lô Phing-im</p>
+
+        <div class="instructions">
+            <strong>使用說明：</strong>
+            <ul>
+                <li>點擊「開始錄音」按鈕，允許瀏覽器使用麥克風</li>
+                <li>開始說台語</li>
+                <li>完成後點擊「停止錄音」</li>
+                <li>系統會自動將您的語音轉換為台羅拼音</li>
+            </ul>
+        </div>
+
+        <div class="recording-section">
+            <button id="recordBtn" class="record-btn">🎤 開始錄音</button>
+            <div id="status" class="status"></div>
+        </div>
+
+        <div class="loader" id="loader"></div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result-section" id="resultSection">
+            <div class="result-label">台羅拼音結果：</div>
+            <div class="result-text" id="resultText"></div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        const recordBtn = document.getElementById('recordBtn');
+        const status = document.getElementById('status');
+        const loader = document.getElementById('loader');
+        const errorDiv = document.getElementById('error');
+        const resultSection = document.getElementById('resultSection');
+        const resultText = document.getElementById('resultText');
+
+        recordBtn.addEventListener('click', toggleRecording);
+
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await sendAudioToServer(audioBlob);
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+
+                recordBtn.textContent = '⏹️ 停止錄音';
+                recordBtn.classList.add('recording');
+                status.textContent = '🔴 錄音中...';
+                status.classList.add('recording');
+                errorDiv.classList.remove('show');
+                resultSection.classList.remove('show');
+
+            } catch (err) {
+                showError('無法存取麥克風。請確認瀏覽器權限設定。');
+                console.error('Error accessing microphone:', err);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+
+                recordBtn.textContent = '🎤 開始錄音';
+                recordBtn.classList.remove('recording');
+                status.textContent = '';
+                status.classList.remove('recording');
+            }
+        }
+
+        async function sendAudioToServer(audioBlob) {
+            try {
+                recordBtn.disabled = true;
+                loader.classList.add('show');
+                status.textContent = '⏳ 處理中...';
+                status.classList.add('processing');
+
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'recording.webm');
+
+                const response = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultText.textContent = data.tailo_text;
+                    resultSection.classList.add('show');
+                    status.textContent = '✅ 轉換完成！';
+                } else {
+                    showError(data.error || '轉換失敗，請重試');
+                }
+
+            } catch (err) {
+                showError('網路錯誤，請檢查連線後重試');
+                console.error('Error sending audio:', err);
+            } finally {
+                loader.classList.remove('show');
+                recordBtn.disabled = false;
+                status.classList.remove('processing');
+                setTimeout(() => {
+                    status.textContent = '';
+                }, 3000);
+            }
+        }
+
+        function showError(message) {
+            errorDiv.textContent = '❌ 錯誤：' + message;
+            errorDiv.classList.add('show');
+        }
+    </script>
+</body>
+</html>
