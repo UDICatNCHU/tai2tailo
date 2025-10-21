@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-台語語音轉台羅文字 - 網頁版
-簡單的 Flask 應用程式，提供網頁介面錄音並轉換為台羅拼音
+台語醫療對談語音辨識 - 網頁版
+簡單的 Flask 應用程式，提供網頁介面錄音並進行醫療對談辨識
 """
 
 from flask import Flask, render_template, request, jsonify
@@ -30,7 +30,7 @@ def index():
 
 @app.route('/api/transcribe', methods=['POST'])
 def transcribe():
-    """處理音訊檔案並轉換為台羅拼音"""
+    """處理音訊檔案並進行語音辨識與修正"""
     try:
         # 檢查是否有上傳檔案
         if 'audio' not in request.files:
@@ -49,8 +49,8 @@ def transcribe():
         # 儲存上傳的檔案
         audio_file.save(file_path)
 
-        # 執行語音轉文字
-        tailo_text = taiwanese_speech_to_tailo(str(file_path))
+        # 執行語音辨識並轉換為台羅拼音
+        result = taiwanese_speech_to_tailo(str(file_path))
 
         # 刪除暫存檔案
         try:
@@ -60,7 +60,11 @@ def transcribe():
 
         return jsonify({
             'success': True,
-            'tailo_text': tailo_text
+            'chinese_result': result.get('chinese_result', ''),  # Whisper 中文
+            'tailo_result': result.get('tailo_result', ''),      # Whisper 台羅
+            'best_tailo': result.get('best_tailo', ''),          # 標準台羅
+            'word_candidates': result.get('word_candidates', {}),
+            'chinese_translation': result.get('chinese_translation', '')  # 最終翻譯
         })
 
     except Exception as e:
@@ -72,10 +76,15 @@ def transcribe():
 
 if __name__ == '__main__':
     print("=" * 60)
-    print("台語語音轉台羅文字 - 網頁版")
+    print("台語語音辨識 - 網頁版")
     print("=" * 60)
     print("正在啟動網頁伺服器...")
     print("請在瀏覽器開啟: http://localhost:5001")
+    print()
+    print("功能:")
+    print("  - Whisper 語音辨識")
+    print("  - GPT 辨識錯誤修正")
+    print()
     print("按 Ctrl+C 停止伺服器")
     print("=" * 60)
     app.run(debug=True, host='0.0.0.0', port=5001)
